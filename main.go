@@ -10,6 +10,7 @@ import (
 	"goAwsS3/services"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func loadEnv() {
@@ -30,51 +31,43 @@ func main() {
 	bucketBasics := s3Actions.BucketBasics{S3Client: s3Client}
 
 	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		dir := "tempAsset"
+		err = os.Mkdir(dir, 0755)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer func(path string) {
+			err := os.RemoveAll(path)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}(dir)
 		fileMap := services.UploadHandler(w, r)
-
-		dataChan := make(chan []byte)
-
-		go func() {
-			for _, data := range fileMap {
-				dataChan <- data
+		for fileName, fileByte := range fileMap {
+			// 将 byte 数据写入文件
+			err := os.WriteFile(filepath.Join("tempAsset", fileName), fileByte[1:], 0644)
+			if err != nil {
+				fmt.Println(err)
+				return
 			}
-			close(dataChan)
-		}()
 
-		go func() {
-			for data := range dataChan {
-				// 创建一个临时文件
-				file, err := os.CreateTemp("", "file")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-
-				// 将 []byte 写入临时文件
-				err = os.WriteFile(file.Name(), data, 0644)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-
-				// 将临时文件转换为 *os.File
-				file, err = os.OpenFile(file.Name(), os.O_RDONLY, 0644)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-
-				fileName := file.Name()
-
-				// 上传文件到 S3
-				err = bucketBasics.UploadFile("kaku-golang-bucket", fileName, file)
-				if err != nil {
-					fmt.Printf("Couldn't upload your file. Here's why: %v\n", err)
-					return
-				}
+			// 打开文件
+			file, err := os.Open("tempAsset/" + fileName)
+			if err != nil {
+				fmt.Println(err)
+				return
 			}
-		}()
-
+			// 上传文件到 S3
+			err = bucketBasics.UploadFile(os.Getenv("AWS_BUCKET_NAME"), fileName, file)
+			if err != nil {
+				fmt.Printf("Couldn't upload your file. Here's why: %v\n", err)
+				return
+			} else {
+				fmt.Printf("Upload file: %v success\n", fileName)
+			}
+		}
 	})
 
 	fmt.Printf("Server is running on :%v...\n", os.Getenv("SERVER_LISTEN_PORT"))
