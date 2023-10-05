@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/joho/godotenv"
-	"goAwsS3/s3Services"
+	"goAwsS3/s3Actions"
 	"os"
 	"path/filepath"
 )
@@ -26,7 +26,7 @@ func main() {
 		return
 	}
 	s3Client := s3.NewFromConfig(sdkConfig)
-	bucketBasics := s3Services.BucketBasics{S3Client: s3Client}
+	bucketBasics := s3Actions.BucketBasics{S3Client: s3Client}
 
 	err = bucketBasics.ListBuckets()
 	if err != nil {
