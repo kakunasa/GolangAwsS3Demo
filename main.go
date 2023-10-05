@@ -7,8 +7,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/joho/godotenv"
 	"goAwsS3/s3Actions"
+	"goAwsS3/services"
+	"net/http"
 	"os"
-	"path/filepath"
 )
 
 func loadEnv() {
@@ -28,52 +29,51 @@ func main() {
 	s3Client := s3.NewFromConfig(sdkConfig)
 	bucketBasics := s3Actions.BucketBasics{S3Client: s3Client}
 
-	err = bucketBasics.ListBuckets()
-	if err != nil {
-		fmt.Printf("Couldn't list buckets for your account. Here's why: %v\n", err)
-		return
-	}
+	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		fileMap := services.UploadHandler(w, r)
 
-	fileNameToFullNameMap := scannerAssetDir()
+		dataChan := make(chan []byte)
 
-	for fileName, filePath := range fileNameToFullNameMap {
-		fmt.Println(fileName)
-		err = bucketBasics.UploadFile("kaku-golang-bucket", fileName, filePath)
-		if err != nil {
-			fmt.Printf("Couldn't upload your file. Here's why: %v\n", err)
-			return
-		}
-	}
-}
+		go func() {
+			for _, data := range fileMap {
+				dataChan <- data
+			}
+			close(dataChan)
+		}()
 
-func scannerAssetDir() map[string]string {
-	// Get the asset folder in the root directory
-	assetDir, err := filepath.Abs("asset")
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
+		go func() {
+			for data := range dataChan {
+				// 创建一个临时文件
+				file, err := os.CreateTemp("", "file")
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 
-	// Iterate through all the files in the asset folder
-	files, err := os.ReadDir(assetDir)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
+				// 将 []byte 写入临时文件
+				err = os.WriteFile(file.Name(), data, 0644)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 
-	// Get the file name and path
-	fileNmToFullNmMap := make(map[string]string)
-	for _, file := range files {
-		// Filter out folder
-		if file.IsDir() {
-			continue
-		}
+				// 将临时文件转换为 *os.File
+				file, err = os.OpenFile(file.Name(), os.O_RDONLY, 0644)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 
-		fileName := file.Name()
-		filePath := filepath.Join(assetDir, fileName)
+				fileName := file.Name()
 
-		fileNmToFullNmMap[fileName] = filePath
-	}
+				// 上传文件到 S3
+				err = bucketBasics.UploadFile("kaku-golang-bucket", fileName, file)
+				if err != nil {
+					fmt.Printf("Couldn't upload your file. Here's why: %v\n", err)
+					return
+				}
+			}
+		}()
 
-	return fileNmToFullNmMap
+	})
 }
