@@ -76,4 +76,11 @@ func main() {
 		}()
 
 	})
+
+	fmt.Printf("Server is running on :%v...\n", os.Getenv("SERVER_LISTEN_PORT"))
+	err = http.ListenAndServe(":"+os.Getenv("SERVER_LISTEN_PORT"), nil)
+	if err != nil {
+		fmt.Printf("Error is:%v\n", err)
+		return
+	}
 }
