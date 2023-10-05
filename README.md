@@ -16,3 +16,18 @@ go get github.com/aws/aws-sdk-go-v2
 go mod tidy
 go run .
 ```
+
+### Test Api /upload
+Start this project,after see
+```bash
+Server is running on :<SERVER_LISTEN_PORT>...
+```
+run the command line below
+```bash
+curl -F "files=@testData/send_request/csvNo1.csv" \
+-F "files=@testData/send_request/jpgNo1.jpg" \
+-F "files=@testData/send_request/jpgNo2.jpg" \
+-F "files=@testData/send_request/txtNo1.txt" \
+-F "files=@testData/send_request/txtNo2.txt" \
+http://localhost:18088/upload
+```
