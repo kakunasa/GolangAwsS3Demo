@@ -74,7 +74,7 @@ func main() {
 		// Iterate over the uploaded files and upload them to S3.
 		for fileName, fileByte := range fileMap {
 			// Write the byte data to a file.
-			err := os.WriteFile(filepath.Join("tempAsset", fileName), fileByte[1:], 0644)
+			err := os.WriteFile(filepath.Join("tempAsset", fileName), fileByte[0:], 0644)
 			if err != nil {
 				fmt.Println(err)
 				return

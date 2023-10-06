@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -52,6 +53,11 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) map[string][]byte {
 		fileData, err := io.ReadAll(file)
 		if err != nil {
 			http.Error(w, "Unable to read file data", http.StatusInternalServerError)
+			return nil
+		}
+		err = file.Close()
+		if err != nil {
+			fmt.Println(err)
 			return nil
 		}
 
